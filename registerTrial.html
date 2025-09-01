@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Recruiter Registration</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Supabase CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+        }
+        .form-container {
+            transition: opacity 0.3s ease-in-out;
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen py-12 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-3xl w-full space-y-8 p-10 bg-white rounded-xl shadow-lg">
+        <div id="content-area">
+            <!-- Content will be dynamically loaded here -->
+        </div>
+        <div id="status-message" class="text-center font-medium my-4 hidden"></div>
+    </div>
+
+    <script>
+        // Supabase configuration - REPLACE THESE WITH YOUR OWN!
+        // You can find these values in your Supabase project settings -> API.
+        const SUPABASE_URL = 'https://vahgqcifuysxgkxgiycp.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZhaGdxY2lmdXlzeGdreGdpeWNwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY1NjUyMjEsImV4cCI6MjA3MjE0MTIyMX0.H6BzujWec2iLEfy0_KtBGDlYSgHGR1YG5aPcPkFo3yU';
+
+        let supabase = null;
+        const contentArea = document.getElementById('content-area');
+        const statusMessage = document.getElementById('status-message');
+
+
+        try {
+            supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        } catch (error) {
+            statusMessage.textContent = 'Error: Please replace the placeholder Supabase URL and key in the code.';
+            statusMessage.classList.remove('hidden');
+            statusMessage.classList.add('text-red-600');
+            console.error('Supabase initialization error:', error.message);
+            // Halt script execution if Supabase client can't be created
+            throw new Error("Supabase client not initialized. Please update URL and key.");
+        }
+        
+
+        // Function to show/hide a message
+        function showMessage(message, type = 'success') {
+            statusMessage.textContent = message;
+            statusMessage.classList.remove('hidden', 'text-green-600', 'text-red-600');
+            if (type === 'success') {
+                statusMessage.classList.add('text-green-600');
+            } else {
+                statusMessage.classList.add('text-red-600');
+            }
+        }
+
+        // --- Account Creation Form ---
+        function renderAccountCreationForm() {
+            contentArea.innerHTML = `
+                <div>
+                    <h2 class="mt-6 text-center text-3xl font-extrabold text-gray-900">
+                        Create Your Account
+                    </h2>
+                    <p class="mt-2 text-center text-sm text-gray-600">
+                        Enter your email and password to get started.
+                    </p>
+                </div>
+                <form class="mt-8 space-y-6" id="create-account-form">
+                    <div class="rounded-md shadow-sm -space-y-px">
+                        <div>
+                            <label for="email" class="block text-sm font-medium text-gray-700">Email Address</label>
+                            <input id="email" name="email" type="email" autocomplete="email" required class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                        </div>
+                        <div class="mt-4">
+                            <label for="password" class="block text-sm font-medium text-gray-700">Password</label>
+                            <input id="password" name="password" type="password" autocomplete="new-password" required class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                        </div>
+                    </div>
+                    <div>
+                        <button type="submit" id="submit-button" class="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                            <span id="loading-spinner" class="hidden animate-spin h-5 w-5 mr-3 rounded-full border-2 border-white border-t-transparent"></span>
+                            <span id="button-text">Create Account</span>
+                        </button>
+                    </div>
+                </form>
+            `;
+
+            document.getElementById('create-account-form').addEventListener('submit', handleAccountCreation);
+        }
+
+        async function handleAccountCreation(event) {
+            event.preventDefault();
+            const form = event.target;
+            const submitButton = form.querySelector('#submit-button');
+            const loadingSpinner = form.querySelector('#loading-spinner');
+            const buttonText = form.querySelector('#button-text');
+
+            loadingSpinner.classList.remove('hidden');
+            buttonText.textContent = 'Creating...';
+            submitButton.disabled = true;
+
+            const email = form.email.value;
+            const password = form.password.value;
+
+            try {
+                const { data, error } = await supabase.auth.signUp({
+                    email: email,
+                    password: password,
+                });
+
+                if (error) throw error;
+                
+                showMessage('Account created! Please check your email to confirm your account and complete your profile.', 'success');
+                form.reset();
+            } catch (error) {
+                console.error('Account creation error:', error.message);
+                showMessage(error.message, 'error');
+            } finally {
+                loadingSpinner.classList.add('hidden');
+                buttonText.textContent = 'Create Account';
+                submitButton.disabled = false;
+            }
+        }
+
+
+        // --- Profile Completion Form ---
+        function renderProfileCompletionForm(user) {
+            contentArea.innerHTML = `
+                <div>
+                    <h2 class="mt-6 text-center text-3xl font-extrabold text-gray-900">
+                        Complete Your Recruiter Profile
+                    </h2>
+                    <p class="mt-2 text-center text-sm text-gray-600">
+                        Your account is verified. Now, enter your details to finish your profile.
+                    </p>
+                </div>
+                <form class="mt-8 space-y-6" id="complete-profile-form">
+                    <div class="rounded-md shadow-sm -space-y-px">
+                        <!-- Personal Information -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label for="name" class="block text-sm font-medium text-gray-700">Full Name</label>
+                                <input id="name" name="name" type="text" required class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                            </div>
+                            <div>
+                                <label for="designation" class="block text-sm font-medium text-gray-700">Designation</label>
+                                <input id="designation" name="designation" type="text" required class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                            </div>
+                            <div class="col-span-1 md:col-span-2">
+                                <label for="phone" class="block text-sm font-medium text-gray-700">Phone Number</label>
+                                <input id="phone" name="phone" type="tel" required class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                            </div>
+                            <div>
+                                <label for="location" class="block text-sm font-medium text-gray-700">Company Location</label>
+                                <input id="location" name="location" type="text" required class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                            </div>
+                        </div>
+                        
+                        <!-- Company Information -->
+                        <div class="mt-6">
+                            <h3 class="text-xl font-bold text-gray-900 mb-4">Company Details</h3>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label for="organization_name" class="block text-sm font-medium text-gray-700">Organization Name</label>
+                                    <input id="organization_name" name="organization_name" type="text" required class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                                </div>
+                                <div>
+                                    <label for="company_url" class="block text-sm font-medium text-gray-700">Company URL</label>
+                                    <input id="company_url" name="company_url" type="url" required class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                                </div>
+                                <div class="col-span-1 md:col-span-2">
+                                    <label for="employee_size" class="block text-sm font-medium text-gray-700">Employee Size</label>
+                                    <select id="employee_size" name="employee_size" required class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+                                        <option value="" disabled selected>Select employee size</option>
+                                        <option value="1-10">1-10</option>
+                                        <option value="11-50">11-50</option>
+                                        <option value="51-200">51-200</option>
+                                        <option value="201-500">201-500</option>
+                                        <option value="501-1000">501-1000</option>
+                                        <option value="1000+">1000+</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="mt-4">
+                                <label for="company_description" class="block text-sm font-medium text-gray-700">Company Description</label>
+                                <textarea id="company_description" name="company_description" rows="4" required class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"></textarea>
+                            </div>
+                        </div>
+                    </div>
+                    <div>
+                        <button type="submit" id="submit-button" class="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                            <span id="loading-spinner" class="hidden animate-spin h-5 w-5 mr-3 rounded-full border-2 border-white border-t-transparent"></span>
+                            <span id="button-text">Save Profile</span>
+                        </button>
+                    </div>
+                </form>
+            `;
+
+            document.getElementById('complete-profile-form').addEventListener('submit', (event) => handleProfileSubmission(event, user));
+        }
+
+        async function handleProfileSubmission(event, user) {
+            event.preventDefault();
+            const form = event.target;
+            const submitButton = form.querySelector('#submit-button');
+            const loadingSpinner = form.querySelector('#loading-spinner');
+            const buttonText = form.querySelector('#button-text');
+
+            loadingSpinner.classList.remove('hidden');
+            buttonText.textContent = 'Saving...';
+            submitButton.disabled = true;
+
+            const formData = new FormData(form);
+            const data = {
+                name: formData.get('name'),
+                designation: formData.get('designation'),
+                phone: formData.get('phone'),
+                organization_name: formData.get('organization_name'),
+                company_url: formData.get('company_url'),
+                location: formData.get('location'),
+                employee_size: formData.get('employee_size'),
+                company_description: formData.get('company_description'),
+                user_id: user.id
+            };
+
+            try {
+                const { error } = await supabase
+                    .from('recruiters')
+                    .insert([data]);
+
+                if (error) throw error;
+                
+                showMessage('Profile saved successfully!', 'success');
+                form.reset();
+            } catch (error) {
+                console.error('Profile submission error:', error.message);
+                showMessage(error.message, 'error');
+            } finally {
+                loadingSpinner.classList.add('hidden');
+                buttonText.textContent = 'Save Profile';
+                submitButton.disabled = false;
+            }
+        }
+
+        // --- Main App Logic ---
+        supabase.auth.onAuthStateChange((event, session) => {
+            if (session) {
+                renderProfileCompletionForm(session.user);
+            } else {
+                renderAccountCreationForm();
+            }
+        });
+    </script>
+</body>
+</html>
